@@ -19,7 +19,7 @@ type Record struct {
 }
 
 // Sort sorts records
-func Sort(r []Record) {
+func SortRecords(r []Record) {
 	sort.Slice(r, func(i, j int) bool {
 		return r[i].Version < r[j].Version
 	})

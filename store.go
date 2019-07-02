@@ -28,7 +28,7 @@ func (s *Store) Load(ctx context.Context, id string, startVersion, endVersion in
 		return nil, err
 	}
 
-	Sort(records)
+	SortRecords(records)
 	events := make([]Event, len(records))
 	for i, record := range records {
 		event, err := s.serializer.Deserialize(record)
@@ -55,6 +55,6 @@ func (s *Store) Save(ctx context.Context, id string, events []Event) error {
 		records[i] = record
 	}
 
-	Sort(records)
+	SortRecords(records)
 	return s.recordStore.Save(ctx, id, records)
 }
