@@ -7,9 +7,9 @@ import (
 
 // Event interface
 type Event interface {
-	ID() string
-	Version() int
-	At() time.Time
+	AggregateID() string
+	EventVersion() int
+	EventAt() time.Time
 }
 
 // Record is an event that was serialzied
