@@ -18,7 +18,7 @@ type Record struct {
 	Version int
 }
 
-// Sort sorts records
+// SortRecords sorts records using their version
 func SortRecords(r []Record) {
 	sort.Slice(r, func(i, j int) bool {
 		return r[i].Version < r[j].Version

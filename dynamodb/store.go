@@ -2,18 +2,22 @@ package dynamodb
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"reflect"
 	"strconv"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	d "github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 	"github.com/vectorhacker/eventing"
 )
 
 const (
-	keyPrefix = "_"
+	keyPrefix                  = "_"
+	defaultRecordsPerPartition = 100
+	defaultRangeKey            = "partition"
+	defaultHashKey             = "key"
 )
 
 type store struct {
@@ -27,8 +31,11 @@ type store struct {
 // New returns a new event store
 func New(dynamodb *d.DynamoDB, tableName string, options ...StoreOption) eventing.Store {
 	s := &store{
-		dynamodb:  dynamodb,
-		tableName: tableName,
+		dynamodb:          dynamodb,
+		tableName:         tableName,
+		itemsPerPartition: defaultRecordsPerPartition,
+		hashKey:           defaultHashKey,
+		rangeKey:          defaultHashKey,
 	}
 
 	// apply options
@@ -39,11 +46,59 @@ func New(dynamodb *d.DynamoDB, tableName string, options ...StoreOption) eventin
 	return s
 }
 
-func (s *store) Load(
-	ctx context.Context,
-	id string,
-	from, to int,
-) ([]eventing.Record, error) {
+func (s *store) checkIdempotency(ctx context.Context, id string, records []eventing.Record) error {
+
+	if len(records) == 0 {
+		return nil
+	}
+
+	version := records[len(records)-1].Version
+
+	history, err := s.Load(ctx, id, 0, version)
+	if err != nil {
+		return err
+	}
+
+	if len(history) < len(records) {
+		return errors.New(d.ErrCodeConditionalCheckFailedException)
+	}
+
+	recent := history[len(history)-len(records):]
+	if !reflect.DeepEqual(recent, records) {
+		return errors.New(d.ErrCodeConditionalCheckFailedException)
+	}
+
+	return nil
+}
+
+// Save implements the Store interface
+func (s *store) Save(ctx context.Context, id string, records []eventing.Record) error {
+	if len(records) == 0 {
+		return nil
+	}
+
+	input, err := s.makeUpdateInput(id, records)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.dynamodb.UpdateItemWithContext(ctx, input)
+	if err != nil {
+		if err, ok := err.(awserr.Error); ok {
+			switch err.Code() {
+			case d.ErrCodeConditionalCheckFailedException:
+				return s.checkIdempotency(ctx, id, records)
+			}
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+// Load implements the Store interface
+func (s *store) Load(ctx context.Context, id string, from, to int) ([]eventing.Record, error) {
 
 	input, err := s.makeQueryInput(id, from, to)
 	if err != nil {
@@ -51,60 +106,26 @@ func (s *store) Load(
 	}
 
 	records := []eventing.Record{}
-	err = s.dynamodb.QueryPagesWithContext(ctx, input, func(out *d.QueryOutput, done bool) bool {
-		for _, item := range out.Items {
-			records = append(records, filterRecords(from, to, extractRecords(item))...)
-		}
+	err = s.dynamodb.QueryPagesWithContext(
+		ctx,
+		input,
+		func(out *d.QueryOutput, done bool) bool {
 
-		return *out.Count > *out.ScannedCount
-	})
+			for _, item := range out.Items {
+				records = append(
+					records,
+					filterRecords(from, to, extractRecords(item))...,
+				)
+			}
+
+			return true
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	return records, nil
-}
-
-func extractRecords(item map[string]*d.AttributeValue) []eventing.Record {
-	records := []eventing.Record{}
-	for key, value := range item {
-		if isKey(key) {
-			v := versionFromKey(key)
-
-			records = append(records, eventing.Record{
-				Version: v,
-				Data:    value.B,
-			})
-		}
-	}
-
-	return records
-}
-
-func isKey(k string) bool {
-	return strings.HasPrefix(k, keyPrefix)
-}
-
-func versionFromKey(key string) int {
-	v, _ := strconv.Atoi(key[len(keyPrefix):])
-	return v
-}
-
-func keyFromVersion(version int) string {
-	return fmt.Sprintf("%s%d", keyPrefix, version)
-}
-
-func filterRecords(start, end int, records []eventing.Record) []eventing.Record {
-
-	filtered := []eventing.Record{}
-
-	for _, record := range records {
-		if record.Version >= start && record.Version <= end {
-			filtered = append(filtered, record)
-		}
-	}
-
-	return filtered
 }
 
 func (s *store) makeQueryInput(id string, from, to int) (*d.QueryInput, error) {
@@ -141,14 +162,6 @@ func (s *store) makeQueryInput(id string, from, to int) (*d.QueryInput, error) {
 	return input, nil
 }
 
-func (s *store) Save(ctx context.Context, id string, records []eventing.Record) error {
-	if len(records) == 0 {
-		return nil
-	}
-
-	return nil
-}
-
 func (s *store) makeUpdateInput(id string, records []eventing.Record) (*d.UpdateItemInput, error) {
 	partition := selectPartition(records[0].Version, s.itemsPerPartition)
 
@@ -156,7 +169,8 @@ func (s *store) makeUpdateInput(id string, records []eventing.Record) (*d.Update
 	update := expression.Add(expression.Name("revision"), expression.Value(1))
 	for _, record := range records {
 		key := keyFromVersion(record.Version)
-		conditions = append(conditions, expression.AttributeNotExists(expression.Name(key)))
+		condition := expression.AttributeNotExists(expression.Name(key))
+		conditions = append(conditions, condition)
 		update = update.Set(expression.Name(key), expression.Value(record.Data))
 	}
 

@@ -47,6 +47,9 @@ func (s *JSONSerializer) Serialize(event Event) (Record, error) {
 		Type:    eventName(event),
 		Payload: payload,
 	})
+	if err != nil {
+		return Record{}, err
+	}
 
 	return Record{
 		Version: event.EventVersion(),
@@ -56,14 +59,14 @@ func (s *JSONSerializer) Serialize(event Event) (Record, error) {
 
 // Deserialize implements the Serializer interface
 func (s *JSONSerializer) Deserialize(record Record) (Event, error) {
-	jsonEvent := jsonEvent{}
-	if err := json.Unmarshal(record.Data, &jsonEvent); err != nil {
+	j := &jsonEvent{}
+	if err := json.Unmarshal(record.Data, j); err != nil {
 		return nil, err
 	}
 
-	e := s.new(jsonEvent.Type)
+	e := s.new(j.Type)
 
-	if err := json.Unmarshal(jsonEvent.Payload, e); err != nil {
+	if err := json.Unmarshal(j.Payload, e); err != nil {
 		return nil, err
 	}
 
