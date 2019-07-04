@@ -16,26 +16,6 @@ var (
 	ErrNotCommandHandler = errors.New("AggregateNotHandler")
 )
 
-type memoryStore map[string][]Record
-
-func (m memoryStore) Load(_ context.Context, id string, start, end int) ([]Record, error) {
-	records, ok := m[id]
-	if !ok {
-		return nil, errors.New("not in store")
-	}
-
-	records = records[start+1:]
-	if end > 0 {
-		records = records[:end]
-	}
-	return records, nil
-}
-
-func (m memoryStore) Save(_ context.Context, id string, records []Record) error {
-	m[id] = append(m[id], records...)
-	return nil
-}
-
 // Aggregate interface
 type Aggregate interface {
 	On(Event) error
