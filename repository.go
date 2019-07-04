@@ -93,9 +93,6 @@ func (r *Repository) Load(ctx context.Context, aggregateID string) (Aggregate, e
 // Apply is a helper function that applies a command to an aggregate and
 // saves the events. The aggregate must implement the CommandHandler interface
 func (r *Repository) Apply(ctx context.Context, cmd Command) (int, error) {
-
-	var err error
-
 	a, err := r.Load(ctx, cmd.AggregateID())
 	if err != nil {
 		return NoVersion, err
