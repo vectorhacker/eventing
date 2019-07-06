@@ -5,9 +5,27 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	d "github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/vectorhacker/eventing"
 )
+
+func DynamoDB(region, endpoint string) (*dynamodb.DynamoDB, error) {
+	cfg := &aws.Config{
+		Region: aws.String(region),
+	}
+	if endpoint != "" {
+		cfg.Endpoint = aws.String(endpoint)
+	}
+
+	s, err := session.NewSession(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return dynamodb.New(s), nil
+}
 
 func extractRecords(item map[string]*d.AttributeValue) []eventing.Record {
 	records := []eventing.Record{}
@@ -43,9 +61,15 @@ func filterRecords(start, end int, records []eventing.Record) []eventing.Record 
 	filtered := []eventing.Record{}
 
 	for _, record := range records {
-		if record.Version >= start && record.Version <= end {
-			filtered = append(filtered, record)
+		if record.Version < start {
+			continue
 		}
+
+		if end > 0 && record.Version > end {
+			continue
+		}
+
+		filtered = append(filtered, record)
 	}
 
 	return filtered

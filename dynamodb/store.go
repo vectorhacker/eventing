@@ -3,6 +3,7 @@ package dynamodb
 import (
 	"context"
 	"errors"
+	"log"
 	"reflect"
 	"strconv"
 
@@ -35,7 +36,7 @@ func New(dynamodb *d.DynamoDB, tableName string, options ...StoreOption) eventin
 		tableName:         tableName,
 		itemsPerPartition: defaultRecordsPerPartition,
 		hashKey:           defaultHashKey,
-		rangeKey:          defaultHashKey,
+		rangeKey:          defaultRangeKey,
 	}
 
 	// apply options
@@ -82,7 +83,8 @@ func (s *store) Save(ctx context.Context, id string, records []eventing.Record) 
 		return err
 	}
 
-	_, err = s.dynamodb.UpdateItemWithContext(ctx, input)
+	out, err := s.dynamodb.UpdateItemWithContext(ctx, input)
+	log.Println(out)
 	if err != nil {
 		if err, ok := err.(awserr.Error); ok {
 			switch err.Code() {
@@ -125,6 +127,8 @@ func (s *store) Load(ctx context.Context, id string, from, to int) ([]eventing.R
 		return nil, err
 	}
 
+	eventing.SortRecords(records)
+
 	return records, nil
 }
 
@@ -132,12 +136,12 @@ func (s *store) makeQueryInput(id string, from, to int) (*d.QueryInput, error) {
 	startPartition := selectPartition(from, s.itemsPerPartition)
 	endPartition := selectPartition(to, s.itemsPerPartition)
 
-	keys := expression.KeyEqual(expression.Key(s.hashKey), expression.Value(id)).
-		And(expression.KeyGreaterThanEqual(expression.Key(s.rangeKey), expression.Value(startPartition)))
+	keys := expression.KeyEqual(expression.Key(s.hashKey), expression.Value(id))
 
 	if endPartition != eventing.EndOfStream {
-		keys = keys.And(expression.KeyLessThanEqual(
+		keys = keys.And(expression.KeyBetween(
 			expression.Key(s.rangeKey),
+			expression.Value(startPartition),
 			expression.Value(endPartition),
 		))
 	}
@@ -165,18 +169,19 @@ func (s *store) makeQueryInput(id string, from, to int) (*d.QueryInput, error) {
 func (s *store) makeUpdateInput(id string, records []eventing.Record) (*d.UpdateItemInput, error) {
 	partition := selectPartition(records[0].Version, s.itemsPerPartition)
 
-	conditions := []expression.ConditionBuilder{}
+	var condition expression.ConditionBuilder
 	update := expression.Add(expression.Name("revision"), expression.Value(1))
-	for _, record := range records {
+	for i, record := range records {
 		key := keyFromVersion(record.Version)
-		condition := expression.AttributeNotExists(expression.Name(key))
-		conditions = append(conditions, condition)
-		update = update.Set(expression.Name(key), expression.Value(record.Data))
-	}
+		localCondition := expression.AttributeNotExists(expression.Name(key))
 
-	condition := conditions[0]
-	for _, c := range conditions[0:] {
-		condition = condition.And(c)
+		if i > 0 {
+			condition = condition.And(localCondition)
+		} else {
+			condition = localCondition
+		}
+
+		update = update.Set(expression.Name(key), expression.Value(record.Data))
 	}
 
 	expr, err := expression.NewBuilder().
