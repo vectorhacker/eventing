@@ -49,7 +49,7 @@ func generateEventBuilder(message *descriptor.DescriptorProto, packageName strin
 			values[jen.Id(name(field))] = jen.Id(paramCaseName(field))
 			param := jen.Id(paramCaseName(field))
 
-			typeName := strings.ReplaceAll(field.GetTypeName()[len("."+packageName+"."):], ".", "_")
+			typeName := strings.ReplaceAll(strings.ReplaceAll(field.GetTypeName(), "."+packageName+".", ""), ".", "_")
 			switch field.GetType() {
 			case descriptor.FieldDescriptorProto_TYPE_BOOL:
 				param = param.Bool()

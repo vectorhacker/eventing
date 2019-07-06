@@ -2,6 +2,8 @@ package test
 
 import (
 	"testing"
+
+	"github.com/gogo/protobuf/proto"
 )
 
 func TestTest(t *testing.T) {
@@ -15,9 +17,27 @@ func TestTest(t *testing.T) {
 		Hola: "Mundo",
 	})
 
-	if len(b.Events) != 2 {
-		t.Fatal("b.Events should have 2 events: ", b.Events)
+	b.EventB(nil)
+
+	if len(b.Events) != 3 {
+		t.Fatal("b.Events should have 3 events: ", b.Events)
 	}
 
-	t.Logf("%v", b.Events)
+	s := NewSerializer()
+
+	event := b.Events[2]
+
+	record, err := s.Serialize(event)
+	if err != nil {
+		t.Fatal("ERROR:", err)
+	}
+
+	got, err := s.Deserialize(record)
+	if err != nil {
+		t.Fatal("ERROR:", err)
+	}
+
+	if !proto.Equal(event.(*EventB), got.(*EventB)) {
+		t.Fatalf("Not equal:\nexpected: %##v\n actual: %##v", event, got)
+	}
 }
