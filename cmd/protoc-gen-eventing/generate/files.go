@@ -89,20 +89,57 @@ func fieldMap(fields []*descriptor.FieldDescriptorProto) map[string]*descriptor.
 }
 
 func name(field *descriptor.FieldDescriptorProto) string {
+
 	if gogoproto.IsCustomName(field) {
 		return gogoproto.GetCustomName(field)
 	}
 
 	return generator.CamelCase(field.GetName())
+
+}
+
+func isRestrictedName(name string) bool {
+
+	switch name {
+	case "type",
+		"struct",
+		"interface",
+		"map",
+		"append",
+		"make",
+		"new",
+		"func",
+		"return",
+		"for",
+		"switch",
+		"case",
+		"if",
+		"else",
+		"var",
+		"const",
+		"package",
+		"import":
+		return true
+	}
+
+	return false
 }
 
 func paramCaseName(field *descriptor.FieldDescriptorProto) string {
-	n := name(field)
+	gotName := func() string {
+		n := name(field)
 
-	letters := strings.Split(n, "")
-	letters[0] = strings.ToLower(letters[0])
+		letters := strings.Split(n, "")
+		letters[0] = strings.ToLower(letters[0])
 
-	return strings.Join(letters, "")
+		return strings.Join(letters, "")
+	}()
+
+	if isRestrictedName(gotName) {
+		return "_" + gotName
+	}
+
+	return gotName
 }
 
 func isContainer(message *descriptor.DescriptorProto) bool {
