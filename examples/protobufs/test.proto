@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package test;
+
+message TestEvent {
+  oneof event {
+    EventA eventA = 1;
+    EventB eventB = 2;
+  }
+}
+
+enum KnownLanguages {
+  ENGLISH = 0;
+  SPANISH = 1;
+}
+
+message EventA {
+  string id = 1;
+  int32 version = 2;
+  int64 at = 3;
+  KnownLanguages language = 4;
+  InnerMessage message = 5;
+
+  message InnerMessage {
+    string hello = 1;
+  }
+}
+
+
+message OuterMessage {
+  string hola = 1;
+}
+
+message EventB {
+  string id = 1;
+  int32 version = 2;
+  int64 at = 3;
+  OuterMessage message = 4;
+}

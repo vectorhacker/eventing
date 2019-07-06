@@ -5,13 +5,14 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Launch",
+      "name": "Launch test package",
       "type": "go",
       "request": "launch",
-      "mode": "auto",
-      "program": "${fileDirname}",
-      "env": {},
-      "args": []
-    }
+      "mode": "test",
+      "program": "${workspaceFolder}",
+      "env": {
+        "DYNAMODB_ENDPOINT": "http://localhost:8000"
+      }
+    },
   ]
 }

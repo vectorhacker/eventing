@@ -10,13 +10,14 @@ import (
 	plugin_go "github.com/gogo/protobuf/protoc-gen-gogo/plugin"
 )
 
+// Field constants
 const (
 	AtField      = "at"
 	VersionField = "version"
 	IDField      = "id"
 )
 
-// AllFiles ...
+// AllFiles generates the code for all files.
 func AllFiles(descriptions []*descriptor.FileDescriptorProto) ([]*plugin_go.CodeGeneratorResponse_File, error) {
 
 	files := []*plugin_go.CodeGeneratorResponse_File{}
@@ -35,7 +36,7 @@ func AllFiles(descriptions []*descriptor.FileDescriptorProto) ([]*plugin_go.Code
 	return files, nil
 }
 
-// File ...
+// File generates the events and stuff for this protobuf description
 func File(description *descriptor.FileDescriptorProto) (*plugin_go.CodeGeneratorResponse_File, error) {
 
 	packageName := description.GetPackage()
@@ -114,6 +115,7 @@ func isContainer(message *descriptor.DescriptorProto) bool {
 	return false
 }
 
+// isEvent determines if a message is an event if it has the at, version, and id fields
 func isEvent(message *descriptor.DescriptorProto) bool {
 	var (
 		hasAt,

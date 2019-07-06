@@ -1,6 +1,8 @@
 package generate
 
 import (
+	"strings"
+
 	jen "github.com/dave/jennifer/jen"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 )
@@ -47,6 +49,7 @@ func generateEventBuilder(message *descriptor.DescriptorProto, packageName strin
 			values[jen.Id(name(field))] = jen.Id(paramCaseName(field))
 			param := jen.Id(paramCaseName(field))
 
+			typeName := strings.ReplaceAll(field.GetTypeName()[len("."+packageName+"."):], ".", "_")
 			switch field.GetType() {
 			case descriptor.FieldDescriptorProto_TYPE_BOOL:
 				param = param.Bool()
@@ -62,7 +65,7 @@ func generateEventBuilder(message *descriptor.DescriptorProto, packageName strin
 			case descriptor.FieldDescriptorProto_TYPE_FLOAT:
 				param = param.Float32()
 			case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-				param = param.Op("*").Id(field.GetTypeName()[len("."+packageName+"."):])
+				param = param.Op("*").Id(typeName)
 			case descriptor.FieldDescriptorProto_TYPE_STRING:
 				param = param.String()
 			case descriptor.FieldDescriptorProto_TYPE_UINT32:
@@ -70,7 +73,7 @@ func generateEventBuilder(message *descriptor.DescriptorProto, packageName strin
 			case descriptor.FieldDescriptorProto_TYPE_UINT64:
 				param = param.Uint64()
 			case descriptor.FieldDescriptorProto_TYPE_ENUM:
-				param = param.Id(field.GetTypeName()[len("."+packageName+"."):])
+				param = param.Id(typeName)
 			}
 
 			params = append(params, param)
