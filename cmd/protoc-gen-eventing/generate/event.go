@@ -32,5 +32,9 @@ func generateEventMethods(message *descriptor.DescriptorProto) jen.Code {
 		Params().Qual("time", "Time").
 		Block(
 			jen.Return(jen.Qual("time", "Unix").Call(jen.Id("e").Dot(atName), jen.Lit(0))),
-		).Line().Line()
+		).Line().Line().
+		Comment("EventName implements the EventNamer interface").Line().
+		Func().Params(jen.Id(message.GetName())).Id("EventName").Params().String().Block(
+		jen.Return(jen.Lit(message.GetName())),
+	).Line()
 }
