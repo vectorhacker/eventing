@@ -21,6 +21,9 @@ func AllFiles(descriptions []*descriptor.FileDescriptorProto) ([]*plugin_go.Code
 
 	files := []*plugin_go.CodeGeneratorResponse_File{}
 	for _, description := range descriptions {
+		if !hasEvents(description) {
+			continue
+		}
 		file, err := File(description)
 		if err != nil {
 			return nil, err
@@ -36,18 +39,24 @@ func AllFiles(descriptions []*descriptor.FileDescriptorProto) ([]*plugin_go.Code
 func File(description *descriptor.FileDescriptorProto) (*plugin_go.CodeGeneratorResponse_File, error) {
 
 	packageName := description.GetPackage()
-	file := jen.NewFile(description.GetName()[len(packageName+"."):])
+	file := jen.NewFile(packageName)
+
+	file.Add(generateBuilder())
 
 	for _, message := range description.MessageType {
 		switch {
 		case isEvent(message):
-			file.Add(generateEventMethods(packageName, message))
+			file.Add(generateEventMethods(message))
+			file.Add(generateEventBuilder(message, packageName))
 		case isContainer(message):
+			file.Add(generateSerializer(message, packageName))
 		}
 	}
 
+	name := strings.ReplaceAll(description.GetName(), ".proto", ".es.go")
+
 	return &plugin_go.CodeGeneratorResponse_File{
-		Name:    String(description.GetName()[len(packageName+"."):] + ".es.go"),
+		Name:    String(name),
 		Content: String(file.GoString()),
 	}, nil
 }
@@ -55,6 +64,16 @@ func File(description *descriptor.FileDescriptorProto) (*plugin_go.CodeGenerator
 // String returns a reference of a string
 func String(s string) *string {
 	return &s
+}
+
+func hasEvents(description *descriptor.FileDescriptorProto) bool {
+	for _, message := range description.MessageType {
+		if isEvent(message) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func fieldMap(fields []*descriptor.FieldDescriptorProto) map[string]*descriptor.FieldDescriptorProto {
@@ -74,6 +93,15 @@ func name(field *descriptor.FieldDescriptorProto) string {
 	}
 
 	return generator.CamelCase(field.GetName())
+}
+
+func paramCaseName(field *descriptor.FieldDescriptorProto) string {
+	n := name(field)
+
+	letters := strings.Split(n, "")
+	letters[0] = strings.ToLower(letters[0])
+
+	return strings.Join(letters, "")
 }
 
 func isContainer(message *descriptor.DescriptorProto) bool {

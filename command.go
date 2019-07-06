@@ -12,3 +12,13 @@ type Command interface {
 type CommandHandler interface {
 	Apply(context.Context, Command) ([]Event, error)
 }
+
+// CommandModel implements the Command interface
+type CommandModel struct {
+	ID string
+}
+
+// AggregateID implements the Command interface
+func (c CommandModel) AggregateID() string {
+	return c.ID
+}

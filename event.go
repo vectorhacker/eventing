@@ -12,6 +12,30 @@ type Event interface {
 	EventAt() time.Time
 }
 
+// EventModel implements the Event interface
+type EventModel struct {
+	ID string
+	Version int
+	At time.Time
+}
+
+
+// AggregateID implements the Event interface
+func (e EventModel) AggregateID() string {
+	return e.ID
+}
+
+
+// EventVersion implements the Event interface
+func (e EventModel) EventVersion() int {
+	return e.Version
+}
+
+// EventAt implements the Event interface
+func (e EventModel) EventAt() time.Time {
+	return e.At
+}
+
 // Record is an event that was serialzied
 type Record struct {
 	Data    []byte

@@ -5,10 +5,7 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 )
 
-func generateEventMethods(
-	packageName string,
-	message *descriptor.DescriptorProto,
-) jen.Code {
+func generateEventMethods(message *descriptor.DescriptorProto) jen.Code {
 
 	fields := fieldMap(message.Field)
 
@@ -17,22 +14,23 @@ func generateEventMethods(
 	idName := name(fields["id"])
 
 	return jen.
+		Line().
 		Comment("AggregateID implements the Event interface").Line().
 		Func().Params(jen.Id("e").Op("*").Id(message.GetName())).Id("AggregateID").
-		Params().
+		Params().String().
 		Block(
-			jen.Return(jen.Id(idName)),
+			jen.Return(jen.Id("e").Dot(idName)),
 		).Line().
 		Comment("EventVersion implements the Event interface").Line().
 		Func().Params(jen.Id("e").Op("*").Id(message.GetName())).Id("EventVersion").
-		Params().
+		Params().Int().
 		Block(
-			jen.Return(jen.Int().Params(jen.Id(versionName))),
+			jen.Return(jen.Int().Params(jen.Id("e").Dot(versionName))),
 		).Line().
 		Comment("EventAt implements the Event interface").Line().
 		Func().Params(jen.Id("e").Op("*").Id(message.GetName())).Id("EventAt").
-		Params().
+		Params().Qual("time", "Time").
 		Block(
-			jen.Return(jen.Qual("time", "Unix").Call(jen.Id(atName), jen.Lit(0))),
-		).Line()
+			jen.Return(jen.Qual("time", "Unix").Call(jen.Id("e").Dot(atName), jen.Lit(0))),
+		).Line().Line()
 }

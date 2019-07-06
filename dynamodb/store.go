@@ -175,7 +175,7 @@ func (s *store) makeUpdateInput(id string, records []eventing.Record) (*d.Update
 	}
 
 	condition := conditions[0]
-	for _, c := range conditions {
+	for _, c := range conditions[0:] {
 		condition = condition.And(c)
 	}
 

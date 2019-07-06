@@ -2,7 +2,6 @@ package eventing
 
 import (
 	"context"
-	"errors"
 )
 
 // Version constants
@@ -22,10 +21,10 @@ type memoryStore map[string][]Record
 func (m memoryStore) Load(_ context.Context, id string, start, end int) ([]Record, error) {
 	records, ok := m[id]
 	if !ok {
-		return nil, errors.New("not in store")
+		return []Record{}, nil
 	}
 
-	records = records[start+1:]
+	records = records[start:]
 	if end > 0 {
 		records = records[:end]
 	}
@@ -33,6 +32,10 @@ func (m memoryStore) Load(_ context.Context, id string, start, end int) ([]Recor
 }
 
 func (m memoryStore) Save(_ context.Context, id string, records []Record) error {
-	m[id] = append(m[id], records...)
+	old, ok := m[id]
+	if !ok {
+		old = []Record{}
+	}
+	m[id] = append(old, records...)
 	return nil
 }
