@@ -12,37 +12,60 @@ const (
 )
 
 func generateBuilder() jen.Code {
-	return jen.Type().Id(builder).Struct(
+	return jen.
+		Type().Id("Clock").Interface(
+		jen.Id("Now").Params().Qual("time", "Time"),
+	).
+		Line().Line().
+		Type().Id("realClock").Struct().Line().Line().
+		Func().Params(jen.Id("realClock")).Id("Now").Params().Qual("time", "Time").Block(
+		jen.Return(jen.Qual("time", "Now").Call()),
+	).Line().Line().
+		Type().Id("BuilderOption").Func().Params(jen.Op("*").Id(builder)).Line().Line().
+		Func().Id("WithClock").Params(jen.Id("c").Id("Clock")).Id("BuilderOption").Block(
+		jen.Return(
+			jen.Func().Params(jen.Id("b").Op("*").Id(builder)).Block(
+				jen.Id("b").Dot("clock").Op("=").Id("c"),
+			),
+		),
+	).Line().Line().
+		Type().Id(builder).Struct(
 		jen.Id("ID").String(),
 		jen.Id("Events").Index().Qual("github.com/vectorhacker/eventing", "Event"),
 		jen.Id("Version").Int(),
+		jen.Id("clock").Id("Clock"),
 	).Line().Line().
-		Func().Params(jen.Id("b").Op("*").Id(builder)).Id("nextVersion").Params().Block(
+		Func().Params(jen.Id("b").Op("*").Id(builder)).Id("nextVersion").Params().Int32().Block(
 		jen.Id("b").Dot("Version").Op("++"),
+		jen.Return(jen.Int32().Parens(jen.Id("b").Dot("Version"))),
 	).Line().Line().
-		Func().Id("NewBuilder").Params(jen.Id("id").String(), jen.Id("version").Int()).Op("*").Id(builder).Block(
+		Func().Id("NewBuilder").Params(jen.Id("id").String(), jen.Id("version").Int(), jen.Id("opts").Op("...").Id("BuilderOption")).Op("*").Id(builder).Block(
+		jen.Id("b").Op(":=").Op("&").Id(builder).Values(jen.Dict{
+			jen.Id("Version"): jen.Id("version"),
+			jen.Id("ID"):      jen.Id("id"),
+			jen.Id("clock"):   jen.Id("realClock").Values(jen.Dict{}),
+		}),
+
+		jen.For(jen.Id("_").Op(",").Id("opt").Op(":=").Range().Id("opts")).Block(
+			jen.Id("opt").Call(jen.Id("b")),
+		),
+
 		jen.Return(
-			jen.Op("&").Id(builder).Values(jen.Dict{
-				jen.Id("Version"): jen.Id("version"),
-				jen.Id("ID"):      jen.Id("id"),
-			}),
+			jen.Id("b"),
 		),
 	)
 }
 
 func generateEventBuilder(message *descriptor.DescriptorProto, packageName string) jen.Code {
-
-	fields := fieldMap(message.Field)
-
 	params := []jen.Code{}
 	values := jen.Dict{}
 
-	for fieldName, field := range fields {
-		switch fieldName {
+	for _, field := range message.Field {
+		switch strings.ToLower(name(field)) {
 		case AtField:
-			values[jen.Id(name(field))] = jen.Qual("time", "Now()").Dot("Unix").Call()
+			values[jen.Id(name(field))] = jen.Id("b").Dot("clock").Dot("Now").Call().Dot("Unix").Call()
 		case VersionField:
-			values[jen.Id(name(field))] = jen.Int32().Parens(jen.Id("b").Dot("Version"))
+			values[jen.Id(name(field))] = jen.Id("b").Dot("nextVersion").Call()
 		case IDField:
 			values[jen.Id(name(field))] = jen.Id("b").Dot("ID")
 		default:
@@ -83,6 +106,5 @@ func generateEventBuilder(message *descriptor.DescriptorProto, packageName strin
 		Block(
 			jen.Id("e").Op(":=").Op("&").Id(message.GetName()).Values(values),
 			jen.Id("b").Dot("Events").Op("=").Append(jen.Id("b").Dot("Events"), jen.Id("e")),
-			jen.Id("b").Dot("nextVersion").Call(),
 		)
 }

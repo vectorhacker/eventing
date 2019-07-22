@@ -81,7 +81,6 @@ func fieldMap(fields []*descriptor.FieldDescriptorProto) map[string]*descriptor.
 
 	f := make(map[string]*descriptor.FieldDescriptorProto, len(fields))
 	for _, field := range fields {
-		gogoproto.GetCustomName(field)
 		f[strings.ToLower(name(field))] = field
 	}
 
