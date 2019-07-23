@@ -42,7 +42,7 @@ func TestRepository(t *testing.T) {
 
 	r := New(&testAggregate{}, WithSerializer(NewJSONSerializer(&testEvent{})))
 
-	version, err := r.Apply(context.Background(), testCommand{CommandModel: CommandModel{ID: "123"}})
+	version, err := r.Dispatch(context.Background(), testCommand{CommandModel: CommandModel{ID: "123"}})
 	if err != nil {
 		t.Fatal("ERROR:", err)
 	}
