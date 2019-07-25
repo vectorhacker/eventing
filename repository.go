@@ -93,7 +93,7 @@ func (r *Repository) Load(ctx context.Context, aggregateID string) (Aggregate, e
 
 // Dispatch is a helper function that applies a command to an aggregate and
 // saves the events. The aggregate must implement the CommandHandler interface
-func (r *Repository) Dispatch(ctx context.Context, cmd Command) (int, error) {
+func (r *Repository) Dispatch(ctx context.Context, cmd Command) (version int, err error) {
 	a, err := r.Load(ctx, cmd.AggregateID())
 	if err != nil {
 		return NoVersion, err
@@ -114,7 +114,7 @@ func (r *Repository) Dispatch(ctx context.Context, cmd Command) (int, error) {
 		return NoVersion, err
 	}
 
-	version := NoVersion
+	version = NoVersion
 	if len(events) > 0 {
 		version = events[len(events)-1].EventVersion()
 	}
