@@ -3,7 +3,6 @@ package eventing
 import (
 	"context"
 	"errors"
-	"reflect"
 )
 
 // NoVersion constants
@@ -24,7 +23,7 @@ type Aggregate interface {
 // Repository interface
 type Repository struct {
 	store      Store
-	prototype  reflect.Type
+	factory    AggregateFactory
 	serializer Serializer
 }
 
@@ -45,12 +44,14 @@ func WithStore(s Store) RepositoryOption {
 	}
 }
 
+// AggregateFactory creates a brand new aggregate when called
+type AggregateFactory func() Aggregate
+
 // New creates a new repository with the given aggregate and options
-func New(prototype Aggregate, options ...RepositoryOption) *Repository {
-	t := typeOf(prototype)
+func New(factory AggregateFactory, options ...RepositoryOption) *Repository {
 
 	r := &Repository{
-		prototype:  t,
+		factory:    factory,
 		serializer: NewJSONSerializer(),
 		store:      &memoryStore{},
 	}
@@ -63,7 +64,7 @@ func New(prototype Aggregate, options ...RepositoryOption) *Repository {
 }
 
 func (r *Repository) new() Aggregate {
-	return reflect.New(r.prototype).Interface().(Aggregate)
+	return r.factory()
 }
 
 // Load loads up an aggregate from events

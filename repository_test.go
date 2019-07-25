@@ -40,7 +40,7 @@ func (t *testAggregate) Apply(_ context.Context, cmd Command) ([]Event, error) {
 
 func TestRepository(t *testing.T) {
 
-	r := New(&testAggregate{}, WithSerializer(NewJSONSerializer(&testEvent{})))
+	r := New(func() Aggregate { return &testAggregate{} }, WithSerializer(NewJSONSerializer(&testEvent{})))
 
 	version, err := r.Dispatch(context.Background(), testCommand{CommandModel: CommandModel{ID: "123"}})
 	if err != nil {
